@@ -1,0 +1,109 @@
+#! /usr/bin/bash
+echo "Running server manager..."
+echo "-----------------------------------------"
+
+# Check if folder is provided
+if [ -z ${1+x} ]; then
+	echo "Folder path not provided, exiting..."
+	exit 0
+fi
+
+update=true
+
+# get latest version
+latest_release=$(./hytale-downloader -print-version)
+echo "Latest release: $latest_release" 
+echo "-----------------------------------------"
+
+server_version="Unknown"
+
+# Check if folder exists
+if [ -d "$1" ]; then
+	echo "Folder \"$1\" exists, checking server version..."
+	
+	# check if version file exists
+	if [ -f "$1/Server/version" ]; then
+		# get current server version
+		server_version=$(cat "$1/Server/version")
+		echo "Server version: $server_version"
+		
+		# check version matching
+		if [ "$server_version" == "$latest_release" ]; then
+			echo "Server is up to date"
+			update=false
+		else
+			echo "Updating server..."
+		fi
+	else
+		echo "Server version is unknown, updating server..."
+	fi
+else
+	echo "Server missing, creating folder \"$1\"..."
+	mkdir "$1"
+fi
+
+# update server files
+if [ "$update" = true ]; then
+	echo "-----------------------------------------"
+	zip_present=false
+
+	# Check if version is downloaded
+	downloaded_file="${latest_release}.zip"
+	if [ -f "$downloaded_file" ]; then
+		echo "Version $latest_release is available"
+		zip_present=true
+	else
+		echo "Missing version $latest_release..."
+		zip_present=false
+	fi
+
+	# Check zip file
+	if [ "$zip_present" = true ]; then
+		echo "-----------------------------------------"
+		echo "Testing zip file..."
+
+		if ! unzip -t "${latest_release}.zip"; then
+			echo "Failed unzip test, file might be corrupt or incomplete..."
+			zip_present=false
+
+			echo "-----------------------------------------"
+			rm "${latest_release}.zip"
+			echo "Redownloading version $latest_release..."
+		fi
+	fi
+
+	# download version if needed
+	if [ "$zip_present" = false ]; then
+		./hytale-downloader
+		
+		# check if file was downloaded successfully
+		if [ ! -f "$downloaded_file" ]; then
+			echo "Failed to download server files"
+			echo "Exiting..."
+			exit 1
+		fi
+	fi
+
+	echo "-----------------------------------------"
+	echo "Removing outdated server files..."
+	rm "$1/Assets.zip"
+	rm -r "$1/Server"
+
+	echo "Extracting updated server files..."
+	unzip "${latest_release}.zip" -d "$1"
+
+	# save server version for update checking
+	echo "Creating version file..."
+	printf "$latest_release" > "$1/Server/version"
+
+	# remove zip file if specified
+	if [ "$2" == "-rm" ]; then
+		echo "Cleaning up files..."
+		rm "${latest_release}.zip"
+	fi
+fi
+
+# launch server
+echo "Launching server..."
+cd "$1"
+java -jar Server/HytaleServer.jar --assets Assets.zip
