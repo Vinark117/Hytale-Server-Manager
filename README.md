@@ -19,7 +19,7 @@ cd "pathToServerFolder"
 
 # Usage
 
-Once you've completed the setup, you can simple run the script with the following command in your terminal.
+Once you've completed the setup, you can simply run the script with the following command in your terminal.
 
 ```sh
 ./hytale-server-manager "Server Folder Name" -rm
