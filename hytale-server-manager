@@ -2,6 +2,62 @@
 echo "Running server manager..."
 echo "-----------------------------------------"
 
+# check if we can run the downloader
+if [ ! -x "hytale-downloader" ]; then
+    # check if file is available
+    if [ ! -f "hytale-downloader" ]; then
+        echo "Hytale downloader not available, downloading..."
+    
+        wget https://downloader.hytale.com/hytale-downloader.zip
+        echo "-----------------------------------------"
+
+        echo "Creating temporary directory..."
+        mkdir temp
+
+        echo "Extracting downloaded file..."
+        unzip -q hytale-downloader.zip -d temp
+
+        echo "Renaming and moving downloader program..."
+        mv temp/hytale-downloader-linux-amd64 hytale-downloader
+
+        echo "Removing temporary files..."
+        rm -r temp
+        rm hytale-downloader.zip 
+    fi
+
+    # make file executable
+    echo "Making downloader executable..."
+    chmod +x hytale-downloader
+    echo "-----------------------------------------"
+fi
+
+# try to get latest release version
+if ! latest_release=$(timeout 3 ./hytale-downloader -print-version 2>&1); then
+    echo "Failed to get version..."
+else
+    echo "Latest release: $latest_release"
+fi
+
+# Check if there's an error
+if [[ $latest_release == *"error"* ]]; then
+    echo "Authentication file might be corrupt, retrying..."
+    rm .hytale-downloader-credentials.json 
+    latest_release="authenticate"
+fi
+
+# Check if you're required to authenticate
+if [[ $latest_release == *"auth"* ]]; then
+    # print message so user can authenticate
+    echo "Authentication is required"
+    ./hytale-downloader -print-version
+
+    # get version again
+    latest_release=$(./hytale-downloader -print-version)
+    echo "Latest release: $latest_release" 
+fi
+
+echo "-----------------------------------------"
+
 # Check if folder is provided
 if [ -z ${1+x} ]; then
 	echo "Folder path not provided, exiting..."
@@ -9,12 +65,6 @@ if [ -z ${1+x} ]; then
 fi
 
 update=true
-
-# get latest version
-latest_release=$(./hytale-downloader -print-version)
-echo "Latest release: $latest_release" 
-echo "-----------------------------------------"
-
 server_version="Unknown"
 
 # Check if folder exists
